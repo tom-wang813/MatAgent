@@ -1,0 +1,10 @@
+.env
+data/
+*.pyc
+__pycache__/
+*.pyo
+*.pyd
+*.db
+*.sqlite3
+*.log
+GEMINI.md

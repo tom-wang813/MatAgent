@@ -1,0 +1,67 @@
+services:
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        - REACT_APP_BACKEND_URL=http://localhost/api
+    ports:
+      - "80:80"
+    depends_on:
+      backend:
+        condition: service_started
+
+  backend:
+    build:
+      context: .
+      dockerfile: ./backend/Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=sqlite:///./data/matagent.db
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
+      - MCP_SERVER_URL=http://mcp_server:8080 # Use service name for inter-container communication
+    depends_on:
+      - mcp_server
+    
+    
+
+  mcp_server:
+    build:
+      context: .
+      dockerfile: ./mcp_server/Dockerfile
+    ports:
+      - "8080:8080"
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "5"
+    environment:
+      - MODEL_WEIGHTS_BASE_DIR=/app/mcp_server/model_weights # Set model weights base dir
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+
+  celery_worker:
+    build:
+      context: .
+      dockerfile: ./mcp_server/Dockerfile
+    command: celery -A mcp_server.celery_app worker --loglevel=info
+    volumes:
+      - .:/app
+    environment:
+      - MODEL_WEIGHTS_BASE_DIR=/app/mcp_server/model_weights
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+    depends_on:
+      - redis
+      - mcp_server
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+
+networks:
+  default:
+    driver: bridge
