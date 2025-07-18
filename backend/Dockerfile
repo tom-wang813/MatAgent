@@ -1,26 +1,29 @@
-# Use an official Python runtime as a parent image
-FROM registry.hub.docker.com/library/python:3.11-slim
+# Use official Python 3.11 slim image as base
+FROM python:3.11-slim
 
-# Install build dependencies
-RUN apt-get update && apt-get install -y --no-install-recommends build-essential && rm -rf /var/lib/apt/lists/*
-
-# Set the working directory in the container
+# Set working directory
 WORKDIR /app
 
-# Copy the unified requirements file from the project root
-COPY ../requirements.txt .
+# Install system build dependencies and curl for health checks
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends build-essential curl \
+    && rm -rf /var/lib/apt/lists/*
 
-# Install any needed packages specified in requirements.txt
-RUN pip install --no-cache-dir --upgrade pip &&     pip install --no-cache-dir -r requirements.txt &&     pip show python-json-logger &&     ls -l /usr/local/lib/python3.11/site-packages/ &&     pip install tenacity &&     pip install tenacity
+# Copy and install Python dependencies
+# Make sure your requirements.txt already includes celery, tenacity, python-json-logger, etc.
+COPY ./requirements.txt .
+RUN pip install --no-cache-dir --upgrade pip \
+    && pip install --no-cache-dir -r requirements.txt
 
-# Copy the entire project into the container
-COPY . .
+# Copy only necessary application source code
+COPY ./backend /app/backend
+COPY ./shared_utils /app/shared_utils
 
-# Set PYTHONPATH to include the current working directory (/app) so imports work correctly
+# Ensure Python can locate your app modules
 ENV PYTHONPATH=/app
 
-# Make port 8000 available to the world outside this container
+# Expose HTTP port
 EXPOSE 8000
 
-# Run main.py when the container launches
+# Default command to run the FastAPI app via Uvicorn
 CMD ["uvicorn", "backend.main:app", "--host", "0.0.0.0", "--port", "8000"]

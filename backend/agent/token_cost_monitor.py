@@ -22,13 +22,22 @@ class TokenCostMonitor:
             num_tokens += 4  # every message follows <im_start>{role/name}\n{content}<im_end>\n
             for key, value in message.items():
                 if key == "content" and value is not None:
-                    num_tokens += len(self.tokenizer.encode(value))
+                    # Ensure value is a string
+                    content_str = str(value) if not isinstance(value, str) else value
+                    num_tokens += len(self.tokenizer.encode(content_str))
                 elif key == "tool_calls" and value is not None:
                     for tool_call in value:
-                        num_tokens += len(self.tokenizer.encode(tool_call["function"]["name"]))
-                        num_tokens += len(self.tokenizer.encode(tool_call["function"]["arguments"]))
+                        name_str = str(tool_call["function"]["name"])
+                        args_str = str(tool_call["function"]["arguments"])
+                        num_tokens += len(self.tokenizer.encode(name_str))
+                        num_tokens += len(self.tokenizer.encode(args_str))
                 elif key == "name" and value is not None:
-                    num_tokens += len(self.tokenizer.encode(value))
+                    name_str = str(value)
+                    num_tokens += len(self.tokenizer.encode(name_str))
+                elif key in ["role", "tool_call_id"] and value is not None:
+                    # Convert any other string-like values to string before encoding
+                    value_str = str(value)
+                    num_tokens += len(self.tokenizer.encode(value_str))
                 # Add other keys if they contribute to token count (e.g., tool_call_id for tool messages)
 
         num_tokens += 2  # every reply is primed with <im_start>assistant

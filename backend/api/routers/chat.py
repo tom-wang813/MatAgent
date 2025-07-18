@@ -18,10 +18,27 @@ router = APIRouter()
 
 async def stream_agent_response(agent_generator: AsyncGenerator[Dict, None], conversation_uuid: Optional[str] = None) -> AsyncGenerator[str, None]:
     """Consumes the agent's async generator and yields JSON strings for streaming."""
-    if conversation_uuid:
-        yield f"data: {json.dumps({'type': 'conversation_info', 'conversation_uuid': conversation_uuid})}\n\n"
-    async for step in agent_generator:
-        yield f"data: {json.dumps(step)}\n\n"
+    try:
+        if conversation_uuid:
+            yield f"data: {json.dumps({'type': 'conversation_info', 'conversation_uuid': conversation_uuid})}\n\n"
+        async for step in agent_generator:
+            try:
+                yield f"data: {json.dumps(step)}\n\n"
+            except (TypeError, ValueError) as e:
+                # Handle JSON serialization errors
+                logger.error(f"Error serializing step to JSON: {e}, step: {step}")
+                error_response = json.dumps({"type": "error", "content": f"数据序列化错误: {str(e)}"})
+                yield f"data: {error_response}\n\n"
+                break
+    except Exception as e:
+        # Handle any other errors in the streaming process
+        logger.error(f"Error in stream_agent_response: {e}")
+        error_message = str(e).replace('"', '\\"')
+        error_response = json.dumps({"type": "error", "content": f"流式处理错误: {error_message}"})
+        yield f"data: {error_response}\n\n"
+    finally:
+        # Always send an end signal
+        yield f"data: {json.dumps({'type': 'end'})}\n\n"
 
 @router.get("/chat")
 async def chat_endpoint(
@@ -64,4 +81,6 @@ async def chat_endpoint(
         )
         # Note: Cannot raise HTTPException here as the response has already started streaming for some cases.
         # The error will be logged, and the stream will close.
-        return StreamingResponse([f'data: {"type": "error", "content": "{str(e)}"}\n\n'], media_type="text/event-stream", status_code=500)
+        error_message = str(e).replace('"', '\\"')  # Escape quotes for JSON
+        error_response = json.dumps({"type": "error", "content": error_message})
+        return StreamingResponse([f'data: {error_response}\n\n'], media_type="text/event-stream", status_code=500)

@@ -1,5 +1,5 @@
 from mcp_server.celery_app import celery_app
-from mcp_server.tools.ml_models.property_predictors import _get_model
+from mcp_server.tools.ml_models.model_loader import _get_model
 from mcp_server.tools.ml_models.property_predictors import PredictAqueousSolubilityInput, PredictRadiusOfGyrationInput, PredictHeatCapacityInput
 from shared_utils.logging_config import get_logger
 

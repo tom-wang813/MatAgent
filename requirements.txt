@@ -15,3 +15,5 @@ tenacity==8.2.3
 biopython==1.83
 tenacity
 pytest-asyncio
+celery==5.4.0
+redis==5.0.4

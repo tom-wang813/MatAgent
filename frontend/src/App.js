@@ -63,7 +63,7 @@ function App() {
       conv.id === conversationId 
         ? { 
             ...conv, 
-            messages: [...conv.messages],
+            messages: [...conv.messages, message],
             updatedAt: new Date().toISOString()
           }
         : conv

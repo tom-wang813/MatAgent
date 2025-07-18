@@ -1,11 +1,14 @@
 from typing import Any, Optional, TypeVar, Generic
 from backend.core.config import get_settings, Settings
+from backend.core.database import get_db
 from backend.services.tool_manager import ToolManager, ToolManagerError
 from backend.services.embedding_service import EmbeddingService
 from backend.services.llm_service import LLMService
 from backend.services.conversation_service import ConversationService
 from backend.agent.orchestrator import AgentOrchestrator
 from backend.core.responses import SuccessResponse, ErrorResponse # Import from new location
+from sqlalchemy.orm import Session
+from fastapi import Depends
 
 settings = get_settings()
 
@@ -37,16 +40,16 @@ def get_tool_manager() -> ToolManager:
         settings=settings
     )
 
-def get_conversation_service() -> ConversationService:
-    return ConversationService(
-        llm_service=get_llm_service(),
-        embedding_service=get_embedding_service(),
-        tool_manager=get_tool_manager()
-    )
+def get_conversation_service(db: Session = Depends(get_db)) -> ConversationService:
+    return ConversationService(db=db)
 
-def get_agent_orchestrator() -> AgentOrchestrator:
+def get_agent_orchestrator(
+    db: Session = Depends(get_db)
+) -> AgentOrchestrator:
     from backend.agent.orchestrator import AgentOrchestrator
     return AgentOrchestrator(
         llm_service=get_llm_service(),
-        tool_manager=get_tool_manager()
+        tool_manager=get_tool_manager(),
+        conversation_service=get_conversation_service(db),
+        settings=get_settings()
     )

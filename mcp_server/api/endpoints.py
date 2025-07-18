@@ -36,7 +36,7 @@ def list_tools(request: Request):
     tools_metadata = [tool.model_dump() for tool in get_all_tools_metadata()]
     return SuccessResponse(data=tools_metadata)
 
-@router.post("/run_tool", response_model=SuccessResponse[Dict[str, Any]])
+@router.post("/run_tool", response_model=SuccessResponse[Any])
 def execute_tool(request: ToolRunRequest, http_request: Request):
     """
     Executes a specified tool with the given parameters.
@@ -58,6 +58,11 @@ def execute_tool(request: ToolRunRequest, http_request: Request):
     
     try:
         result = run_tool(request.tool_name, trace_id=trace_id, **request.params)
+        
+        # Ensure result is wrapped in a dictionary for consistent API response
+        if not isinstance(result, dict):
+            result = {"result": result}
+            
         logger.info(
             f"Tool execution successful: {request.tool_name}",
             extra={

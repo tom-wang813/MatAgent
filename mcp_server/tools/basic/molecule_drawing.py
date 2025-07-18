@@ -4,13 +4,21 @@ import base64
 from io import BytesIO
 from typing import List, Tuple
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, validator
 
 from mcp_server.core.registry import register_basic_tool, BasicToolMetadata
 
 class SmilesToSvgInput(BaseModel):
     smiles: str = Field(..., description="The SMILES string of the molecule.")
-    mol_size: Tuple[int, int] = Field((300, 300), description="The size of the molecule image (width, height).")
+    mol_size: List[int] = Field([300, 300], description="The size of the molecule image (width, height).")
+    
+    @validator('mol_size')
+    def validate_mol_size(cls, v):
+        if len(v) != 2:
+            raise ValueError('mol_size must contain exactly 2 integers (width, height)')
+        if any(x <= 0 for x in v):
+            raise ValueError('mol_size values must be positive integers')
+        return v
 
 @register_basic_tool(
     metadata=BasicToolMetadata(
@@ -27,16 +35,24 @@ def smiles_to_svg(input: SmilesToSvgInput) -> str:
     if mol is None:
         return "<svg width='300' height='300'><text x='10' y='20'>Invalid SMILES</text></svg>"
 
-    drawer = rdMolDraw2DSVG(*input.mol_size)
+    drawer = rdMolDraw2D.MolDraw2DSVG(*input.mol_size)
     drawer.drawOptions().clearBackground = False
-    drawer.drawMolecule(mol)
-    drawer.finishDrawing()
+    drawer.DrawMolecule(mol)
+    drawer.FinishDrawing()
     svg = drawer.GetDrawingText()
     return svg
 
 class SmilesToPngBase64Input(BaseModel):
     smiles: str = Field(..., description="The SMILES string of the molecule.")
-    mol_size: Tuple[int, int] = Field((300, 300), description="The size of the molecule image (width, height).")
+    mol_size: List[int] = Field([300, 300], description="The size of the molecule image (width, height).")
+    
+    @validator('mol_size')
+    def validate_mol_size(cls, v):
+        if len(v) != 2:
+            raise ValueError('mol_size must contain exactly 2 integers (width, height)')
+        if any(x <= 0 for x in v):
+            raise ValueError('mol_size values must be positive integers')
+        return v
 
 @register_basic_tool(
     metadata=BasicToolMetadata(
@@ -54,9 +70,9 @@ def smiles_to_png_base64(input: SmilesToPngBase64Input) -> str:
         # Return a placeholder or error image if SMILES is invalid
         return "" 
 
-    drawer = rdMolDraw2DCairo(*input.mol_size)
+    drawer = rdMolDraw2D.MolDraw2DCairo(*input.mol_size)
     drawer.drawOptions().clearBackground = False
-    drawer.drawMolecule(mol)
+    drawer.DrawMolecule(mol)
     
     # Get PNG as bytes
     png_bytes = drawer.GetDrawingText()

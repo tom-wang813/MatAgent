@@ -37,6 +37,24 @@ class AgentOrchestrator:
     ):
         """
         Runs the main Agent loop and yields each step as it occurs.
+        This is a wrapper that ensures all exceptions are properly handled.
+        """
+        try:
+            async for step in self._run_agent_loop_internal(conversation_id, user_message, trace_id):
+                yield step
+        except Exception as e:
+            logger.critical(f"Unhandled exception in agent loop: {e}", extra={'trace_id': trace_id, 'event': 'agent_loop_unhandled_exception'})
+            yield {"type": "error", "content": f"系统发生严重错误: {str(e)}"}
+            yield {"type": "end"}
+
+    async def _run_agent_loop_internal(
+        self,
+        conversation_id: int,
+        user_message: str,
+        trace_id: str = "N/A"
+    ):
+        """
+        Internal implementation of the agent loop.
         """
         current_cost = 0.0
         current_tokens = 0
@@ -109,7 +127,15 @@ class AgentOrchestrator:
                 yield {"type": "final_answer", "content": limit_exceeded_message}
                 break
 
+            # Ensure tools are discovered before using them
+            if not self.tool_manager._available_tools:
+                await self.tool_manager.discover_tools(trace_id=trace_id)
+            
             query_for_tools = messages[-1]["content"]
+            # Ensure query_for_tools is a string
+            if not isinstance(query_for_tools, str):
+                query_for_tools = str(query_for_tools) if query_for_tools is not None else ""
+            
             relevant_tool_definitions = await self.tool_manager.get_relevant_tool_definitions(
                 query_text=query_for_tools,
                 trace_id=trace_id,
@@ -178,9 +204,11 @@ class AgentOrchestrator:
                             logger.error(f"Tool {tool_name} execution failed: {e}", extra={'trace_id': trace_id, 'event': 'tool_execution_failure', 'tool_name': tool_name, 'error': str(e)})
                     
                     for output in tool_outputs:
-                        yield {"type": "tool_output", "content": json.dumps(output["output"])}
-                        messages.append({"role": "tool", "tool_call_id": output["tool_call_id"], "content": output["output"]})
-                        self.conversation_service.add_message(conversation_id, "tool", json.dumps(output["output"]), tool_call_id=output["tool_call_id"], trace_id=trace_id)
+                        # Truncate large tool outputs to prevent LLM input issues
+                        truncated_output = self._truncate_tool_output(output["output"])
+                        yield {"type": "tool_output", "content": json.dumps(truncated_output)}
+                        messages.append({"role": "tool", "tool_call_id": output["tool_call_id"], "content": truncated_output})
+                        self.conversation_service.add_message(conversation_id, "tool", json.dumps(truncated_output), tool_call_id=output["tool_call_id"], trace_id=trace_id)
 
                     continue
 
@@ -203,12 +231,50 @@ class AgentOrchestrator:
                     break
 
             except LLMServiceError as e:
-                yield {"type": "final_answer", "content": f"An error occurred with the AI service: {e}"}
+                error_msg = f"AI服务错误: {str(e)}"
+                yield {"type": "error", "content": error_msg}
                 logger.error(f"LLM service error: {e}", extra={'trace_id': trace_id, 'event': 'llm_service_error'})
                 break
+            except ToolManagerError as e:
+                error_msg = f"工具执行错误: {str(e)}"
+                yield {"type": "error", "content": error_msg}
+                logger.error(f"Tool manager error: {e}", extra={'trace_id': trace_id, 'event': 'tool_manager_error'})
+                break
             except Exception as e:
-                yield {"type": "final_answer", "content": f"An unexpected error occurred: {e}"}
+                error_msg = f"系统错误: {str(e)}"
+                yield {"type": "error", "content": error_msg}
                 logger.critical(f"Critical error in agent loop: {e}", extra={'trace_id': trace_id, 'event': 'agent_critical_error'})
                 break
         
         logger.info("Agent loop finished.", extra={'trace_id': trace_id, 'event': 'agent_loop_end', 'total_cost_usd': current_cost, 'turns_taken': turn_count})
+        
+        # Send end signal to indicate stream completion
+        yield {"type": "end"}
+    
+    def _truncate_tool_output(self, output: Any, max_length: int = 2000) -> str:
+        """
+        Truncates large tool outputs to prevent LLM input issues.
+        For arrays/lists, shows first few elements and indicates truncation.
+        For other types, converts to string and truncates if needed.
+        """
+        try:
+            if isinstance(output, dict) and "result" in output:
+                result = output["result"]
+                if isinstance(result, list) and len(result) > 50:
+                    # For large arrays (like fingerprints), show first few elements
+                    truncated = result[:10]
+                    summary = f"Array of {len(result)} elements. First 10 elements: {truncated}"
+                    return f"Array of {len(result)} elements with first 10: {truncated}"
+                else:
+                    # For smaller results, return as is but ensure it's JSON serializable
+                    output_str = str(output)
+                    if len(output_str) > max_length:
+                        return output_str[:max_length] + "...[truncated]"
+                    return output_str
+            else:
+                output_str = str(output)
+                if len(output_str) > max_length:
+                    return output_str[:max_length] + "...[truncated]"
+                return output_str
+        except Exception as e:
+            return f"Error processing tool output: {str(e)}"

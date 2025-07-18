@@ -40,6 +40,10 @@ class EmbeddingService:
         if not self.model:
             raise EmbeddingServiceError("Embedding model not loaded.")
 
+        # Ensure text is a string
+        if not isinstance(text, str):
+            text = str(text) if text is not None else ""
+
         logger.info(
             "Generating embedding using SentenceTransformer",
             extra={

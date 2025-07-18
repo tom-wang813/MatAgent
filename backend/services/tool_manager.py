@@ -196,23 +196,45 @@ class ToolManager:
                 return result
 
         except httpx.HTTPStatusError as e:
+            error_detail = "服务器错误"
+            if e.response.status_code == 404:
+                error_detail = f"工具 '{tool_name}' 未找到"
+            elif e.response.status_code == 500:
+                error_detail = "MCP服务器内部错误"
+            elif e.response.status_code >= 400 and e.response.status_code < 500:
+                error_detail = f"请求错误 ({e.response.status_code})"
+            else:
+                error_detail = f"HTTP错误 {e.response.status_code}"
+            
             logger.error(
                 f"Tool execution failed on MCP server: HTTP error {e.response.status_code} - {e.response.text}",
                 extra={'trace_id': trace_id, 'event': 'tool_execution_error', 'tool_name': tool_name, 'status_code': e.response.status_code, 'response_text': e.response.text}
             )
-            raise ToolManagerError(f"Tool '{tool_name}' execution failed: {e.response.status_code} - {e.response.text}") from e
-        except httpx.RequestError as e:
+            raise ToolManagerError(f"工具执行失败: {error_detail}") from e
+        except httpx.ConnectError as e:
             logger.error(
                 f"Failed to connect to MCP server for tool execution: {e}",
-                extra={'trace_id': trace_id, 'event': 'tool_execution_error', 'tool_name': tool_name, 'error_message': str(e)}
+                extra={'trace_id': trace_id, 'event': 'tool_execution_connection_error', 'tool_name': tool_name, 'error_message': str(e)}
             )
-            raise ToolManagerError(f"Failed to connect to MCP server for tool execution: {e}") from e
+            raise ToolManagerError(f"无法连接到MCP服务器，请检查服务器状态") from e
+        except httpx.TimeoutException as e:
+            logger.error(
+                f"Timeout connecting to MCP server for tool execution: {e}",
+                extra={'trace_id': trace_id, 'event': 'tool_execution_timeout_error', 'tool_name': tool_name, 'error_message': str(e)}
+            )
+            raise ToolManagerError(f"MCP服务器响应超时，请稍后重试") from e
+        except httpx.RequestError as e:
+            logger.error(
+                f"Request error to MCP server for tool execution: {e}",
+                extra={'trace_id': trace_id, 'event': 'tool_execution_request_error', 'tool_name': tool_name, 'error_message': str(e)}
+            )
+            raise ToolManagerError(f"网络请求错误: {str(e)}") from e
         except Exception as e:
             logger.critical(
                 f"An unexpected error occurred during tool execution for '{tool_name}': {e}",
                 extra={'trace_id': trace_id, 'event': 'tool_execution_critical_error', 'tool_name': tool_name, 'error_message': str(e)}
             )
-            raise ToolManagerError(f"An unexpected error occurred during tool execution for '{tool_name}': {e}") from e
+            raise ToolManagerError(f"工具执行时发生未知错误: {str(e)}") from e
 
 async def test_ml_tool_execution():
     """A simple test function to demonstrate ML tool execution and polling."""

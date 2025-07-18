@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Box, Typography, Accordion, AccordionSummary, AccordionDetails, Button, CircularProgress, Link, Paper } from '@mui/material';
+import { Box, Typography, Accordion, AccordionSummary, AccordionDetails, Button, CircularProgress, Paper } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import DownloadIcon from '@mui/icons-material/Download';
 import SettingsIcon from '@mui/icons-material/Settings';
@@ -7,7 +7,7 @@ import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import CancelIcon from '@mui/icons-material/Cancel';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
 
-const ToolCallDisplay = ({ toolCalls = [] }) => {
+const ToolCallDisplay = ({ toolCalls = [], compact = false }) => {
   const [expanded, setExpanded] = useState({});
 
   const handleChange = (panel) => (event, isExpanded) => {

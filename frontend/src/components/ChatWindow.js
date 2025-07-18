@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Box, TextField, Button, Typography, CircularProgress, Paper, Avatar, Chip } from '@mui/material';
+import { Box, TextField, Button, Typography, CircularProgress, Paper, Avatar, Chip, Accordion, AccordionSummary, AccordionDetails } from '@mui/material';
 import SendIcon from '@mui/icons-material/Send';
 import SmartToyIcon from '@mui/icons-material/SmartToy';
 import PersonIcon from '@mui/icons-material/Person';
@@ -7,6 +7,7 @@ import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
+import SettingsIcon from '@mui/icons-material/Settings';
 import ReactMarkdown from 'react-markdown';
 import remarkMath from 'remark-math';
 import rehypeKatex from 'rehype-katex';
@@ -20,36 +21,54 @@ const MAX_TOOL_OUTPUT_LENGTH = 200; // Define max length for tool output display
 const groupAgentSteps = (steps) => {
   const grouped = [];
   let currentGroup = null;
+  let toolOutputs = []; // Track multiple tool outputs for a single tool_calls
 
   steps.forEach(step => {
     if (step.type === 'thought') {
-      if (currentGroup && (currentGroup.tool_calls.length > 0 || currentGroup.tool_output)) {
+      // If we have a previous group, push it before starting a new one
+      if (currentGroup) {
+        if (toolOutputs.length > 0) {
+          currentGroup.tool_outputs = toolOutputs;
+          toolOutputs = [];
+        }
         grouped.push(currentGroup);
       }
-      currentGroup = { thought: step.content, tool_calls: [], tool_output: null };
+      currentGroup = { thought: step.content, tool_calls: [], tool_outputs: [] };
     } else if (step.type === 'tool_calls') {
       if (!currentGroup) {
-        currentGroup = { thought: null, tool_calls: [], tool_output: null };
+        currentGroup = { thought: null, tool_calls: [], tool_outputs: [] };
       }
-      currentGroup.tool_calls = currentGroup.tool_calls.concat(step.content); // step.content is now the tool_calls array
+      // Concatenate all tool calls for this group
+      currentGroup.tool_calls = currentGroup.tool_calls.concat(step.content);
     } else if (step.type === 'tool_output') {
-      if (!currentGroup) {
-        currentGroup = { thought: null, tool_calls: [], tool_output: null };
+      // Collect tool outputs - there might be multiple for one tool_calls
+      try {
+        const outputData = typeof step.content === 'string' ? JSON.parse(step.content) : step.content;
+        toolOutputs.push(outputData);
+      } catch (e) {
+        toolOutputs.push(step.content);
       }
-      currentGroup.tool_output = step.content.output; // step.content is now the tool_output object
-      grouped.push(currentGroup); // Tool output usually marks the end of a step
-      currentGroup = null; // Reset for next group
     } else if (step.type === 'final_answer') {
+      // Final answer ends any current group
       if (currentGroup) {
+        if (toolOutputs.length > 0) {
+          currentGroup.tool_outputs = toolOutputs;
+          toolOutputs = [];
+        }
         grouped.push(currentGroup);
+        currentGroup = null;
       }
-      // Final answer is handled separately, not grouped as a step
     }
   });
 
+  // Push any remaining group
   if (currentGroup) {
+    if (toolOutputs.length > 0) {
+      currentGroup.tool_outputs = toolOutputs;
+    }
     grouped.push(currentGroup);
   }
+
   return grouped;
 };
 
@@ -74,6 +93,77 @@ const ToolOutputContent = ({ output }) => {
         </Button>
       )}
     </>
+  );
+};
+
+// Component for collapsible agent steps
+const AgentStepsDisplay = ({ agentSteps, defaultExpanded = false }) => {
+  const [expanded, setExpanded] = useState(defaultExpanded);
+  const groupedSteps = groupAgentSteps(agentSteps);
+  
+  if (!agentSteps || agentSteps.length === 0) {
+    return null;
+  }
+
+  const getSummary = () => {
+    const thoughtCount = groupedSteps.filter(step => step.thought).length;
+    const toolCallCount = groupedSteps.reduce((acc, step) => acc + (step.tool_calls?.length || 0), 0);
+    const outputCount = groupedSteps.reduce((acc, step) => acc + (step.tool_outputs?.length || 0), 0);
+    
+    return `${groupedSteps.length} 步骤 • ${thoughtCount} 思考 • ${toolCallCount} 工具调用 • ${outputCount} 输出`;
+  };
+
+  return (
+    <Accordion 
+      expanded={expanded} 
+      onChange={(event, isExpanded) => setExpanded(isExpanded)}
+      sx={{ mb: 1, '&:before': { display: 'none' } }}
+    >
+      <AccordionSummary
+        expandIcon={<ExpandMoreIcon />}
+        sx={{ 
+          bgcolor: 'grey.50', 
+          minHeight: 40,
+          '& .MuiAccordionSummary-content': { margin: '8px 0' }
+        }}
+      >
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <SettingsIcon fontSize="small" color="action" />
+          <Typography variant="body2" color="text.secondary">
+            {getSummary()}
+          </Typography>
+        </Box>
+      </AccordionSummary>
+      <AccordionDetails sx={{ pt: 1 }}>
+        {groupedSteps.map((stepGroup, groupIndex) => (
+          <Box key={groupIndex} sx={{ mb: 1, p: 1, bgcolor: 'grey.50', borderRadius: 1 }}>
+            <Typography variant="subtitle2">步骤 {groupIndex + 1}</Typography>
+            {stepGroup.thought && (
+              <Typography variant="body2" sx={{ mt: 0.5 }}>
+                <strong>Agent Thought:</strong> <ReactMarkdown>{stepGroup.thought}</ReactMarkdown>
+              </Typography>
+            )}
+            {stepGroup.tool_calls && stepGroup.tool_calls.length > 0 && (
+              <Box sx={{ mt: 0.5 }}>
+                <Typography variant="body2"><strong>Tool Calls:</strong></Typography>
+                <ToolCallDisplay toolCalls={stepGroup.tool_calls} />
+              </Box>
+            )}
+            {stepGroup.tool_outputs && stepGroup.tool_outputs.length > 0 && (
+              <Box sx={{ mt: 0.5 }}>
+                <Typography variant="body2"><strong>Tool Outputs:</strong></Typography>
+                {stepGroup.tool_outputs.map((output, outputIndex) => (
+                  <Box key={outputIndex} sx={{ mt: 0.5, pl: 1, borderLeft: '2px solid', borderColor: 'grey.300' }}>
+                    <Typography variant="caption" color="text.secondary">Output {outputIndex + 1}:</Typography>
+                    <ToolOutputContent output={JSON.stringify(output)} />
+                  </Box>
+                ))}
+              </Box>
+            )}
+          </Box>
+        ))}
+      </AccordionDetails>
+    </Accordion>
   );
 };
 
@@ -105,14 +195,6 @@ const ChatWindow = ({
   useEffect(() => {
     scrollToBottom();
   }, [conversation?.messages, currentAssistantMessage]);
-
-  // Effect to add the completed assistant message to conversation messages
-  useEffect(() => {
-    if (currentAssistantMessage && !isLoading && conversation) {
-      onSendMessage(conversation.id, currentAssistantMessage);
-      setCurrentAssistantMessage(null); // Clear current message
-    }
-  }, [isLoading, currentAssistantMessage, conversation, onSendMessage]);
 
   const handleKeyPress = (e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -206,9 +288,23 @@ const ChatWindow = ({
         },
         (error) => { // onError callback
           console.error('Error during streaming message:', error);
+          let errorMessage = '連接錯誤';
+          
+          if (error.message) {
+            if (error.message.includes('SSE連接錯誤')) {
+              errorMessage = '與服務器的連接中斷，請檢查網絡連接並重試';
+            } else if (error.message.includes('fetch')) {
+              errorMessage = '無法連接到服務器，請確保服務正在運行';
+            } else if (error.message.includes('Invalid URL')) {
+              errorMessage = 'API 配置錯誤，請聯繫管理員';
+            } else {
+              errorMessage = error.message;
+            }
+          }
+          
           setCurrentAssistantMessage(prev => ({
             ...prev,
-            content: `抱歉，发生了错误：${error.message || '未知错误'}。请稍后再试。`,
+            content: `錯誤: ${errorMessage}`,
             status: 'error',
           }));
           setIsLoading(false); // Stop loading on error
@@ -220,9 +316,21 @@ const ChatWindow = ({
       );
     } catch (error) {
       console.error('Error initiating streaming message:', error);
+      let errorMessage = '無法啟動對話';
+      
+      if (error.message) {
+        if (error.message.includes('Invalid URL')) {
+          errorMessage = 'API 配置錯誤，請聯繫管理員';
+        } else if (error.message.includes('fetch')) {
+          errorMessage = '無法連接到服務器，請確保服務正在運行';
+        } else {
+          errorMessage = error.message;
+        }
+      }
+      
       setCurrentAssistantMessage(prev => ({
         ...prev,
-        content: `抱歉，无法启动对话：${error.message || '未知错误'}。请稍后再试。`,
+        content: `抱歉，无法启动对话：${errorMessage}。请稍后再试。`,
         status: 'error',
       }));
       setIsLoading(false);
@@ -336,32 +444,7 @@ const ChatWindow = ({
               bgcolor: message.type === 'user' ? 'primary.light' : 'background.paper',
               color: message.type === 'user' ? 'primary.contrastText' : 'text.primary',
             }}>
-              {message.agent_steps && message.agent_steps.length > 0 && (
-                <Box sx={{ mb: 1 }}>
-                  {groupAgentSteps(message.agent_steps).map((stepGroup, groupIndex) => (
-                    <Box key={groupIndex} sx={{ mb: 1, p: 1, bgcolor: 'grey.50', borderRadius: 1 }}>
-                      <Typography variant="subtitle2">步骤 {groupIndex + 1}</Typography>
-                      {stepGroup.thought && (
-                        <Typography variant="body2" sx={{ mt: 0.5 }}>
-                          <strong>Agent Thought:</strong> <ReactMarkdown>{stepGroup.thought}</ReactMarkdown>
-                        </Typography>
-                      )}
-                      {stepGroup.tool_calls && stepGroup.tool_calls.length > 0 && (
-                        <Box sx={{ mt: 0.5 }}>
-                          <Typography variant="body2"><strong>Tool Calls:</strong></Typography>
-                          <ToolCallDisplay toolCalls={stepGroup.tool_calls} />
-                        </Box>
-                      )}
-                      {stepGroup.tool_output && (
-                        <Box sx={{ mt: 0.5 }}>
-                          <Typography variant="body2"><strong>Tool Output:</strong></Typography>
-                          <ToolOutputContent output={JSON.stringify(stepGroup.tool_output)} />
-                        </Box>
-                      )}
-                    </Box>
-                  ))}
-                </Box>
-              )}
+              <AgentStepsDisplay agentSteps={message.agent_steps} defaultExpanded={false} />
               <Typography component="div">
                 <ReactMarkdown
                   remarkPlugins={[remarkMath]}
@@ -421,10 +504,15 @@ const ChatWindow = ({
                           <ToolCallDisplay toolCalls={stepGroup.tool_calls} />
                         </Box>
                       )}
-                      {stepGroup.tool_output && (
+                      {stepGroup.tool_outputs && stepGroup.tool_outputs.length > 0 && (
                         <Box sx={{ mt: 0.5 }}>
-                          <Typography variant="body2"><strong>Tool Output:</strong></Typography>
-                          <ToolOutputContent output={JSON.stringify(stepGroup.tool_output)} />
+                          <Typography variant="body2"><strong>Tool Outputs:</strong></Typography>
+                          {stepGroup.tool_outputs.map((output, outputIndex) => (
+                            <Box key={outputIndex} sx={{ mt: 0.5, pl: 1, borderLeft: '2px solid', borderColor: 'grey.300' }}>
+                              <Typography variant="caption" color="text.secondary">Output {outputIndex + 1}:</Typography>
+                              <ToolOutputContent output={JSON.stringify(output)} />
+                            </Box>
+                          ))}
                         </Box>
                       )}
                     </Box>

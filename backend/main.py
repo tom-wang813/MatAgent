@@ -31,18 +31,10 @@ async def lifespan(app: FastAPI):
     app.state.httpx_client = httpx.AsyncClient(base_url=settings.OPENROUTER_BASE_URL, timeout=settings.LLM_TIMEOUT)
     logger.info("httpx.AsyncClient initialized.")
 
-    # Initialize SentenceTransformer model for embeddings
-    try:
-        app.state.embedding_model = SentenceTransformer(settings.OPENROUTER_EMBEDDING_MODEL)
-        logger.info(f"SentenceTransformer model {settings.OPENROUTER_EMBEDDING_MODEL} loaded successfully.")
-    except Exception as e:
-        logger.critical(f"Failed to load SentenceTransformer model {settings.OPENROUTER_EMBEDDING_MODEL}: {e}", extra={'event': 'embedding_model_load_failure'})
-        # Depending on criticality, you might want to exit here or just log and continue
-
     # Initialize ToolManager and discover tools once globally
     try:
-        # Pass the globally initialized embedding model and httpx client
-        app.state.embedding_service = EmbeddingService(model=app.state.embedding_model)
+        # EmbeddingService manages its own model loading internally
+        app.state.embedding_service = EmbeddingService()
         app.state.tool_manager = ToolManager(
             embedding_service=app.state.embedding_service,
             client=app.state.httpx_client,

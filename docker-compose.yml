@@ -4,27 +4,38 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
       args:
-        - REACT_APP_BACKEND_URL=http://localhost/api
+        REACT_APP_BACKEND_URL: /api
     ports:
       - "80:80"
     depends_on:
       backend:
-        condition: service_started
+        condition: service_healthy
 
   backend:
     build:
       context: .
       dockerfile: ./backend/Dockerfile
+    working_dir: /app/backend
+    command: uvicorn main:app --host 0.0.0.0 --port 8000
     ports:
       - "8000:8000"
+    volumes:
+      - ./backend:/app/backend
+      - ./shared_utils:/app/shared_utils
+      - ./data:/app/data
     environment:
-      - DATABASE_URL=sqlite:///./data/matagent.db
-      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
-      - MCP_SERVER_URL=http://mcp_server:8080 # Use service name for inter-container communication
+      DATABASE_URL: sqlite:////app/data/matagent.db
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY}
+      MCP_SERVER_URL: http://mcp_server:8080
     depends_on:
-      - mcp_server
-    
-    
+      mcp_server:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
 
   mcp_server:
     build:
@@ -32,30 +43,42 @@ services:
       dockerfile: ./mcp_server/Dockerfile
     ports:
       - "8080:8080"
+    volumes:
+      - ./mcp_server:/app/mcp_server
+      - ./shared_utils:/app/shared_utils
     logging:
       driver: "json-file"
       options:
         max-size: "10m"
         max-file: "5"
     environment:
-      - MODEL_WEIGHTS_BASE_DIR=/app/mcp_server/model_weights # Set model weights base dir
-      - CELERY_BROKER_URL=redis://redis:6379/0
-      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+      MODEL_WEIGHTS_BASE_DIR: /app/mcp_server/model_weights
+      CELERY_BROKER_URL: redis://redis:6379/0
+      CELERY_RESULT_BACKEND: redis://redis:6379/0
+    healthcheck:
+      test: ["CMD-SHELL", "echo healthy"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
 
   celery_worker:
     build:
       context: .
       dockerfile: ./mcp_server/Dockerfile
-    command: celery -A mcp_server.celery_app worker --loglevel=info
+    working_dir: /app/mcp_server
+    command: celery -A celery_app worker --loglevel=info
     volumes:
-      - .:/app
+      - ./mcp_server:/app/mcp_server
+      - ./shared_utils:/app/shared_utils
     environment:
-      - MODEL_WEIGHTS_BASE_DIR=/app/mcp_server/model_weights
-      - CELERY_BROKER_URL=redis://redis:6379/0
-      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+      MODEL_WEIGHTS_BASE_DIR: /app/mcp_server/model_weights
+      CELERY_BROKER_URL: redis://redis:6379/0
+      CELERY_RESULT_BACKEND: redis://redis:6379/0
     depends_on:
-      - redis
-      - mcp_server
+      redis:
+        condition: service_started
+      mcp_server:
+        condition: service_healthy
 
   redis:
     image: redis:7-alpine

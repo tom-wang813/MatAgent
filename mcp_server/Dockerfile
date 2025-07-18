@@ -1,26 +1,32 @@
-# Use an official Python runtime as a parent image
+# Use the official Python 3.11 slim image as the base
 FROM python:3.11-slim
 
-# Install build dependencies
-RUN apt-get update && apt-get install -y --no-install-recommends build-essential libxrender1 libxext6 && rm -rf /var/lib/apt/lists/*
-
-# Set the working directory in the container
+# Set working directory inside the container
 WORKDIR /app
 
-# Copy the unified requirements file from the project root
-COPY ../requirements.txt .
+# Install system-level build dependencies (cached unless you change this line)
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+         build-essential \
+         libxrender1 \
+         libxext6 \
+    && rm -rf /var/lib/apt/lists/*
 
-# Install any needed packages specified in requirements.txt
-RUN pip install --no-cache-dir --upgrade pip &&     pip install --no-cache-dir -r requirements.txt &&     pip install celery
+# Copy Python dependency list into the image
+COPY ./requirements.txt .
 
-# Copy the entire project into the container
-COPY . .
+# Upgrade pip and install all Python packages (including Celery, which should be in requirements.txt)
+RUN pip install --no-cache-dir --upgrade pip     && pip install --no-cache-dir -r requirements.txt
 
-# Set PYTHONPATH to include the current working directory (/app) so imports work correctly
+# Copy only the necessary application source code
+COPY ./mcp_server /app/mcp_server
+COPY ./shared_utils /app/shared_utils
+
+# Ensure Python can find your modules
 ENV PYTHONPATH=/app
 
-# Make port 8080 available to the world outside this container
+# Expose port 8080 for incoming HTTP
 EXPOSE 8080
 
-# Run main.py when the container launches
+# Default command: start Uvicorn serving your FastAPI app
 CMD ["uvicorn", "mcp_server.main:app", "--host", "0.0.0.0", "--port", "8080"]

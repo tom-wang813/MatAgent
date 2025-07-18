@@ -47,7 +47,7 @@ def get_all_tools_metadata() -> List[AnyToolMetadata]:
     all_metadata = list(_basic_tool_metadata.values()) + list(_ml_model_metadata.values())
     return all_metadata
 
-def find_tool(tool_name: str) -> (Callable, AnyToolMetadata):
+def find_tool(tool_name: str) -> tuple[Callable, AnyToolMetadata]:
     """Finds a tool's function and metadata by its name across all registries."""
     if tool_name in _basic_tool_registry:
         return _basic_tool_registry[tool_name], _basic_tool_metadata[tool_name]
@@ -62,18 +62,37 @@ def run_tool(tool_name: str, trace_id: str = "N/A", **kwargs: Any) -> Any:
     """
     tool_function, tool_metadata = find_tool(tool_name)
     
-    # If it's an ML model, the function returns a Celery task ID
+    # Get the function signature to understand parameter structure
+    import inspect
+    sig = inspect.signature(tool_function)
+    parameters = list(sig.parameters.keys())
+    
+    # Check if the function expects a single input model parameter
+    if len(parameters) == 1 or (len(parameters) == 2 and 'trace_id' in parameters):
+        # Find the input parameter name (not trace_id)
+        input_param = next((p for p in parameters if p != 'trace_id'), None)
+        if input_param:
+            # Get the parameter annotation to create the input object
+            param_annotation = sig.parameters[input_param].annotation
+            if hasattr(param_annotation, 'model_validate'):
+                # Create the input object from kwargs
+                input_obj = param_annotation.model_validate(kwargs)
+                if 'trace_id' in parameters:
+                    return tool_function(input_obj, trace_id=trace_id)
+                else:
+                    return tool_function(input_obj)
+    
+    # Fallback to original behavior for functions with multiple parameters
     if tool_metadata.tool_type == "ml_model":
         # The ML model functions are designed to return task IDs directly
         # They already call .delay() internally
-        if 'trace_id' in inspect.signature(tool_function).parameters:
+        if 'trace_id' in parameters:
             return tool_function(trace_id=trace_id, **kwargs)
         else:
             return tool_function(**kwargs)
     else:
         # For basic tools, execute directly
-        import inspect
-        if 'trace_id' in inspect.signature(tool_function).parameters:
+        if 'trace_id' in parameters:
             return tool_function(trace_id=trace_id, **kwargs)
         else:
             return tool_function(**kwargs)

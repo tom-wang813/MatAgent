@@ -1,39 +1,81 @@
-# MatAgent: AI-Powered Materials Science Assistant
+# MatAgent: AI-Powe### ✨ Key Features:
 
-## Project Introduction
+| Feature | Description |
+|---------|------------|
+| 🤖 **Intelligent Agent Orchestration** | An advanced AI agent understands user queries, plans actions, and orchestrates the use of appropriate tools and ML models |
+| 🧬 **Material Property Prediction** | Integrates with specialized machine learning models to predict critical material properties such as aqueous solubility, radius of gyration (Rg), and heat capacity (Cp) |
+| 💻 **User-Friendly Interface** | A responsive web frontend provides an intuitive chat-based interface for seamless interaction with the AI assistant |
+| 🔧 **Modular and Scalable Architecture** | Built with a microservices approach using FastAPI for the backend and MCP server, ensuring maintainability and scalability |
+| 🐳 **Containerized Deployment** | Utilizes Docker and Docker Compose for easy, consistent, and reproducible deployment across different environments |terials Science Assistant
+
+<div align="center">
+
+[![FastAPI](https://img.shields.io/badge/FastAPI-005571?style=for-the-badge&logo=fastapi)](https://fastapi.tiangolo.com/)
+[![React](https://img.shields.io/badge/React-20232A?style=for-the-badge&logo=react&logoColor=61DAFB)](https://reactjs.org/)
+[![Docker](https://img.shields.io/badge/Docker-2CA5E0?style=for-the-badge&logo=docker&logoColor=white)](https://www.docker.com/)
+[![Python](https://img.shields.io/badge/Python-FFD43B?style=for-the-badge&logo=python&logoColor=blue)](https://www.python.org/)
+[![License](https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge)](LICENSE)
+
+🧪 Revolutionizing materials science research with AI-powered property predictions
+</div>
+
+## 🌟 Project Introduction
 
 MatAgent is an innovative AI-powered platform designed to revolutionize materials science and chemistry research. It acts as an intelligent assistant, leveraging the power of large language models (LLMs) to interact with specialized machine learning models and computational tools. The primary goal of MatAgent is to empower researchers by providing on-demand predictions for various material properties based on molecular structures (e.g., SMILES strings), streamlining the research and development process.
 
-### Key Features:
+![MatAgent Architecture](https://user-images.githubusercontent.com/YourUserID/matagent/main/docs/images/architecture.png)
+
+### ✨ Key Features:
 - **Intelligent Agent Orchestration:** An advanced AI agent understands user queries, plans actions, and orchestrates the use of appropriate tools and ML models.
 - **Material Property Prediction:** Integrates with specialized machine learning models to predict critical material properties such as aqueous solubility, radius of gyration (Rg), and heat capacity (Cp).
 - **User-Friendly Interface:** A responsive web frontend provides an intuitive chat-based interface for seamless interaction with the AI assistant.
 - **Modular and Scalable Architecture:** Built with a microservices approach using FastAPI for the backend and MCP server, ensuring maintainability and scalability.
 - **Containerized Deployment:** Utilizes Docker and Docker Compose for easy, consistent, and reproducible deployment across different environments.
 
-### Architecture Overview:
+### 🏗️ Architecture Overview
 
-The MatAgent platform is composed of three main services, orchestrated using Docker Compose:
+The MatAgent platform is built on a modern microservices architecture, orchestrated using Docker Compose. Here's a detailed look at each component:
 
-1.  **Frontend (React.js):**
-    *   A modern web application built with React.js.
-    *   Provides the graphical user interface (GUI) for users to input queries and view responses from the AI agent.
-    *   Communicates with the Backend API to send user messages and receive AI-generated responses, including tool outputs.
+#### 🌐 Frontend (React.js)
+```mermaid
+graph LR
+    User((User)) --> |Interacts| UI[React Frontend]
+    UI --> |API Calls| Backend
+    UI --> |Displays Results| User
+```
+- 🎨 Modern, responsive web application built with React.js
+- 💬 Intuitive chat interface for natural interaction
+- 🔄 Real-time updates and response streaming
 
-2.  **Backend (FastAPI):**
-    *   The central intelligence hub of MatAgent, developed using FastAPI (Python).
-    *   Hosts the core AI agent logic, including:
-        *   **LLM Orchestration:** Manages interactions with external Large Language Models (e.g., via OpenRouter).
-        *   **Conversation Management:** Stores and retrieves conversation history.
-        *   **Tool Management:** Discovers, selects, and executes specialized tools.
-        *   **Embedding Service:** Utilizes `sentence-transformers` for generating embeddings, crucial for tool selection and context understanding.
-    *   Connects to the MCP Server to utilize its specialized ML models as tools.
+#### 🧠 Backend (FastAPI)
+```mermaid
+graph TB
+    API[FastAPI Backend] --> LLM[LLM Service]
+    API --> DB[(SQLite DB)]
+    API --> Tools[Tool Manager]
+    API --> Embed[Embedding Service]
+    LLM --> Router[OpenRouter]
+    Tools --> MCP[MCP Server]
+```
+- 🚀 High-performance FastAPI application
+- 🤖 Advanced AI agent orchestration
+- 💾 Efficient conversation management
+- 🔍 Smart tool discovery and execution
+- 🧮 Embedding-based context understanding
 
-3.  **MCP Server (FastAPI):**
-    *   A dedicated Microservice for Material Chemistry Properties (MCP) calculations, also built with FastAPI (Python).
-    *   Houses various pre-trained machine learning models (e.g., for solubility, Rg, Cp prediction).
-    *   Exposes API endpoints that the Backend's AI agent can call as "tools" to perform specific material property predictions.
-    *   Designed to be extensible, allowing for the easy addition of new computational tools and ML models.
+#### ⚗️ MCP Server (FastAPI)
+```mermaid
+graph LR
+    API[FastAPI] --> Models[ML Models]
+    Models --> Solubility[Solubility Model]
+    Models --> RG[Rg Model]
+    Models --> CP[Cp Model]
+    API --> Tools[Computational Tools]
+```
+- 🧪 Specialized materials science calculations
+- 📊 Pre-trained ML models for property prediction
+- 🔌 Extensible tool and model architecture
+- 🛠️ RESTful API endpoints for all features
 
 ## How It Works:
 
@@ -46,18 +88,22 @@ The MatAgent platform is composed of three main services, orchestrated using Doc
 7.  The Backend's AI agent integrates this result into a coherent response and sends it back to the Frontend.
 8.  The Frontend displays the AI's response, including the predicted property value, to the user.
 
-## How to Deploy
+## 🚀 Quick Start Guide
 
-This project uses Docker and Docker Compose for easy setup and deployment.
+MatAgent is designed for easy deployment using Docker and Docker Compose.
 
-### Prerequisites
+### 📋 Prerequisites
 
-Before you begin, ensure you have the following installed on your system:
+Before you begin, make sure you have:
 
-*   **Docker Desktop:** Includes Docker Engine and Docker Compose.
-    *   [Download Docker Desktop](https://www.docker.com/products/docker-desktop/)
+| Requirement | Description |
+|------------|-------------|
+| 🐳 Docker Desktop | Includes Docker Engine and Docker Compose. [Download here](https://www.docker.com/products/docker-desktop/) |
+| 🔑 API Key | OpenRouter API key for LLM services |
+| 💻 System | Any OS that supports Docker (Windows/Mac/Linux) |
+| 🌐 Internet | Active internet connection for API calls |
 
-### Environment Variables
+### 🔧 Environment Setup
 
 You need to set up an API key for the LLM service (e.g., OpenRouter). Create a `.env` file in the `backend/` directory with the following content:
 
@@ -72,7 +118,7 @@ Replace `your_openrouter_api_key_here` with your actual API key.
 1.  **Clone the Repository:**
     If you haven't already, clone the MatAgent repository to your local machine:
     ```bash
-    git clone https://github.com/your-repo/matagent.git
+    git clone https://github.com/tom-wang813/MatAgent.git
     cd matagent
     ```
     (Note: Replace `https://github.com/your-repo/matagent.git` with the actual repository URL if different.)
@@ -118,3 +164,35 @@ docker-compose down -v
 ```
 
 This will remove the `matagent.db` file created by the backend, allowing for a fresh database on the next `docker-compose up`.
+
+## 🎮 Demo
+
+> 💡 Here you can add screenshots or GIFs demonstrating the key features of MatAgent:
+> - Chat interface and interactions
+> - Property prediction examples
+> - Real-time response streaming
+> - Tool execution visualization
+
+## 📄 License
+
+MIT License
+
+Copyright (c) 2025 MatAgent Contributors
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
