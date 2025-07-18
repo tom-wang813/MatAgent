@@ -120,8 +120,6 @@ Replace `your_openrouter_api_key_here` with your actual API key.
     git clone https://github.com/tom-wang813/MatAgent.git
     cd matagent
     ```
-    (Note: Replace `https://github.com/your-repo/matagent.git` with the actual repository URL if different.)
-
 2.  **Build and Run with Docker Compose:**
     Navigate to the root directory of the cloned repository (where `docker-compose.yml` is located) and run the following command:
 
