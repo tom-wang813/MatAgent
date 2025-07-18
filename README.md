@@ -172,5 +172,10 @@ This will remove the `matagent.db` file created by the backend, allowing for a f
 > - Real-time response streaming
 > - Tool execution visualization
 
+---
+
 ## 📄 License
-This project is licensed under the MIT License - see the LICENSE file for details.
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+---
