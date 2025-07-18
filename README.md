@@ -1,4 +1,4 @@
-# MatAgent: AI-Powe### ✨ Key Features:
+# MatAgent ✨ Key Features:
 
 | Feature | Description |
 |---------|------------|
