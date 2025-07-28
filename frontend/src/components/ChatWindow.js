@@ -8,10 +8,7 @@ import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import SettingsIcon from '@mui/icons-material/Settings';
-import ReactMarkdown from 'react-markdown';
-import remarkMath from 'remark-math';
-import rehypeKatex from 'rehype-katex';
-import 'katex/dist/katex.min.css'; // Import KaTeX CSS
+import EnhancedMarkdown from './EnhancedMarkdown';
 import ToolCallDisplay from './ToolCallDisplay';
 import { sendMessage } from '../utils/api'; // Import sendMessage from api.js
 
@@ -19,6 +16,10 @@ const MAX_TOOL_OUTPUT_LENGTH = 200; // Define max length for tool output display
 
 // Helper function to group agent steps into logical turns
 const groupAgentSteps = (steps) => {
+  if (!steps || !Array.isArray(steps)) {
+    return [];
+  }
+  
   const grouped = [];
   let currentGroup = null;
   let toolOutputs = []; // Track multiple tool outputs for a single tool_calls
@@ -80,7 +81,7 @@ const ToolOutputContent = ({ output }) => {
   return (
     <>
       <Typography component="div" sx={{ mt: 1 }}>
-        <ReactMarkdown>{displayedOutput}</ReactMarkdown>
+        <EnhancedMarkdown>{displayedOutput}</EnhancedMarkdown>
       </Typography>
       {isLong && (
         <Button 
@@ -99,9 +100,14 @@ const ToolOutputContent = ({ output }) => {
 // Component for collapsible agent steps
 const AgentStepsDisplay = ({ agentSteps, defaultExpanded = false }) => {
   const [expanded, setExpanded] = useState(defaultExpanded);
-  const groupedSteps = groupAgentSteps(agentSteps);
   
   if (!agentSteps || agentSteps.length === 0) {
+    return null;
+  }
+  
+  const groupedSteps = groupAgentSteps(agentSteps);
+  
+  if (!groupedSteps || groupedSteps.length === 0) {
     return null;
   }
 
@@ -140,7 +146,7 @@ const AgentStepsDisplay = ({ agentSteps, defaultExpanded = false }) => {
             <Typography variant="subtitle2">步骤 {groupIndex + 1}</Typography>
             {stepGroup.thought && (
               <Typography variant="body2" sx={{ mt: 0.5 }}>
-                <strong>Agent Thought:</strong> <ReactMarkdown>{stepGroup.thought}</ReactMarkdown>
+                <strong>Agent Thought:</strong> <EnhancedMarkdown>{stepGroup.thought}</EnhancedMarkdown>
               </Typography>
             )}
             {stepGroup.tool_calls && stepGroup.tool_calls.length > 0 && (
@@ -205,7 +211,13 @@ const ChatWindow = ({
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!inputValue.trim() || isLoading || !conversation) return;
+    if (!inputValue.trim() || isLoading) return;
+
+    // 如果没有conversation，自动创建一个新的
+    if (!conversation) {
+      console.warn('No conversation found, this should not happen in normal flow');
+      return;
+    }
 
     const userMessage = {
       id: Date.now().toString(),
@@ -379,6 +391,7 @@ const ChatWindow = ({
   };
 
   if (!conversation) {
+    console.log('ChatWindow: No conversation provided, showing welcome screen');
     return (
       <Box sx={{
         flexGrow: 1,
@@ -440,16 +453,13 @@ const ChatWindow = ({
             <Paper elevation={1} sx={{
               p: 1,
               borderRadius: 1,
-              maxWidth: '70%',
+              maxWidth: '85%', // 增加宽度从70%到85%
               bgcolor: message.type === 'user' ? 'primary.light' : 'background.paper',
               color: message.type === 'user' ? 'primary.contrastText' : 'text.primary',
             }}>
-              <AgentStepsDisplay agentSteps={message.agent_steps} defaultExpanded={false} />
+              <AgentStepsDisplay agentSteps={message.agent_steps} defaultExpanded={true} />
               <Typography component="div">
-                <ReactMarkdown
-                  remarkPlugins={[remarkMath]}
-                  rehypePlugins={[rehypeKatex]}
-                >{message.content}</ReactMarkdown>
+                <EnhancedMarkdown>{message.content}</EnhancedMarkdown>
               </Typography>
 
               {/* Display status indicator */}
@@ -484,7 +494,7 @@ const ChatWindow = ({
             <Paper elevation={1} sx={{
               p: 1,
               borderRadius: 1,
-              maxWidth: '70%',
+              maxWidth: '85%', // 增加宽度从70%到85%
               bgcolor: 'background.paper',
               color: 'text.primary',
             }}>
@@ -495,7 +505,7 @@ const ChatWindow = ({
                       <Typography variant="subtitle2">步骤 {groupIndex + 1}</Typography>
                       {stepGroup.thought && (
                         <Typography variant="body2" sx={{ mt: 0.5 }}>
-                          <strong>Agent Thought:</strong> <ReactMarkdown>{stepGroup.thought}</ReactMarkdown>
+                          <strong>Agent Thought:</strong> <EnhancedMarkdown>{stepGroup.thought}</EnhancedMarkdown>
                         </Typography>
                       )}
                       {stepGroup.tool_calls && stepGroup.tool_calls.length > 0 && (
@@ -520,10 +530,7 @@ const ChatWindow = ({
                 </Box>
               )}
               <Typography component="div">
-                <ReactMarkdown
-                  remarkPlugins={[remarkMath]}
-                  rehypePlugins={[rehypeKatex]}
-                >{currentAssistantMessage.content}</ReactMarkdown>
+                <EnhancedMarkdown>{currentAssistantMessage.content}</EnhancedMarkdown>
               </Typography>
               {isLoading && (
                 <CircularProgress size={20} sx={{ mt: 1 }} />
@@ -542,7 +549,7 @@ const ChatWindow = ({
             <Paper elevation={1} sx={{
               p: 1,
               borderRadius: 1,
-              maxWidth: '70%',
+              maxWidth: '85%', // 增加宽度从70%到85%
               bgcolor: 'background.paper',
               color: 'text.primary',
             }}>

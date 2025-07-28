@@ -89,7 +89,7 @@ graph LR
 
 ## 🚀 Quick Start Guide
 
-MatAgent is designed for easy deployment using Docker and Docker Compose.
+MatAgent provides a one-click setup script that automates the entire configuration and deployment process.
 
 ### 📋 Prerequisites
 
@@ -98,71 +98,104 @@ Before you begin, make sure you have:
 | Requirement | Description |
 |------------|-------------|
 | 🐳 Docker Desktop | Includes Docker Engine and Docker Compose. [Download here](https://www.docker.com/products/docker-desktop/) |
-| 🔑 API Key | OpenRouter API key for LLM services |
-| 💻 System | Any OS that supports Docker (Windows/Mac/Linux) |
-| 🌐 Internet | Active internet connection for API calls |
+| 🔑 OpenRouter API Key | Required for LLM access. [Get your key here](https://openrouter.ai/keys) |
 
-### 🔧 Environment Setup
+### ⚡ One-Click Setup
 
-You need to set up an API key for the LLM service (e.g., OpenRouter). Create a `.env` file in the `backend/` directory with the following content:
-
-```
-OPENROUTER_API_KEY=your_openrouter_api_key_here
-```
-
-Replace `your_openrouter_api_key_here` with your actual API key.
-
-### Steps to Deploy
-
-1.  **Clone the Repository:**
-    If you haven't already, clone the MatAgent repository to your local machine:
-    ```bash
-    git clone https://github.com/tom-wang813/MatAgent.git
-    cd matagent
-    ```
-2.  **Build and Run with Docker Compose:**
-    Navigate to the root directory of the cloned repository (where `docker-compose.yml` is located) and run the following command:
-
-    ```bash
-    docker-compose up --build
-    ```
-    *   `--build`: This flag ensures that Docker rebuilds the images for all services (frontend, backend, mcp_server) if there are any changes in the Dockerfiles or dependencies. It's good practice to include this the first time you run it or after pulling updates.
-
-    This command will:
-    *   Build the Docker images for the `frontend`, `backend`, and `mcp_server` services.
-    *   Start all three services in detached mode (you'll see logs in your terminal).
-    *   The `backend` service will wait for the `mcp_server` to be ready.
-    *   The `frontend` service will wait for the `backend` to be ready.
-
-3.  **Access the Application:**
-    Once all services are up and running, you can access the MatAgent frontend in your web browser:
-
-    *   **Frontend:** `http://localhost`
-
-    The frontend is configured to run on port 80, and Docker Compose maps this to your host's port 80.
-
-4.  **Verify Services (Optional):**
-    You can check the status of individual services:
-    *   **Backend Health Check:** `http://localhost:8000/api/health` (You should see a success message)
-    *   **MCP Server Health Check:** `http://localhost:8080/` (You should see "MCP Server is running")
-
-### Stopping the Application
-
-To stop all running services and remove the containers, networks, and volumes created by `docker-compose up`:
+The easiest way to get MatAgent running is using our automated setup script:
 
 ```bash
-docker-compose down
+# Clone the repository
+git clone <repository-url>
+cd MatAgent
+
+# Make the script executable
+chmod +x setup.sh
+
+# Run the one-click setup
+./setup.sh
 ```
 
-If you want to stop and remove volumes (e.g., for a clean start of the database), use:
+The setup script will:
+- ✅ Check Docker environment
+- 🔑 Configure OpenRouter API Key interactively
+- 📁 Create necessary directories
+- 🏗️ Build and start all services
+- 🌐 Open the application at http://localhost
+
+### 🔧 Manual Setup (Alternative)
+
+If you prefer manual configuration:
+
+1. **Create environment file**:
+```bash
+# Create .env file with your API key
+echo "OPENROUTER_API_KEY=your_actual_api_key_here" > .env
+```
+
+2. **Start services**:
+```bash
+# Build and start all services
+docker-compose up --build -d
+
+# Check service status
+docker-compose ps
+```
+
+### 🛠️ Management Commands
+
+The setup script provides convenient management options:
 
 ```bash
-docker-compose down -v
+# Show help
+./setup.sh --help
+
+# Stop all services
+./setup.sh --stop
+
+# Restart services
+./setup.sh --restart
+
+# View service logs
+./setup.sh --logs
+
+# Check service status
+./setup.sh --status
 ```
 
-This will remove the `matagent.db` file created by the backend, allowing for a fresh database on the next `docker-compose up`.
+### 🌐 Access the Application
 
-## 🎮 Demo
+Once setup is complete, you can access MatAgent at:
+
+- **Frontend UI**: http://localhost
+- **Backend API**: http://localhost:8000
+- **Health Check**: http://localhost:8000/api/health
+
+### 🔧 Troubleshooting
+
+If you encounter any issues:
+
+1. **Port conflicts**: Use `sudo lsof -i :80 :8000 :8080` to check port usage
+2. **Docker build fails**: Try `docker system prune -f` and rebuild
+3. **API Key issues**: Edit the `.env` file and restart services
+4. **View logs**: Use `./setup.sh --logs` or `docker-compose logs -f`
+
+## 🎮 Usage Examples
+
+### Basic Material Property Prediction
+
+Ask MatAgent questions like:
+- "What is the aqueous solubility of ethanol (CCO)?"
+- "Predict the radius of gyration for benzene"
+- "Calculate the heat capacity of water (O)"
+
+### Advanced Queries
+
+- "Compare the solubility of ethanol and methanol"
+- "What factors affect the radius of gyration of polymers?"
+- "Explain the relationship between molecular structure and heat capacity"
+
+## � Demo
 
 > 💡 Here you can add screenshots or GIFs demonstrating the key features of MatAgent:
 > - Chat interface and interactions

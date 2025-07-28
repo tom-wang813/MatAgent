@@ -24,11 +24,22 @@ class LLMResponseParser:
 
         if finish_reason == "tool_calls":
             tool_calls = message.get("tool_calls")
-            logger.info(
-                "LLM requested tool calls.",
-                extra={'trace_id': trace_id, 'event': 'llm_tool_call_request', 'tool_calls_count': len(tool_calls)}
-            )
-            return "tool_calls", tool_calls, None
+            # Check if there's also content (thought) in the message
+            content = message.get("content")
+            if content and content.strip():
+                # If both content and tool_calls exist, prioritize the thought
+                logger.warning("LLM provided both thought and tool calls - processing thought only.", 
+                             extra={'trace_id': trace_id, 'event': 'llm_mixed_response', 'content': content.strip()})
+                if content.strip().startswith("Thought:"):
+                    return "thought", None, content.strip()
+                else:
+                    return "thought", None, f"Thought: {content.strip()}"
+            else:
+                logger.info(
+                    "LLM requested tool calls.",
+                    extra={'trace_id': trace_id, 'event': 'llm_tool_call_request', 'tool_calls_count': len(tool_calls)}
+                )
+                return "tool_calls", tool_calls, None
 
         elif finish_reason == "stop":
             content = message.get("content")
@@ -37,9 +48,17 @@ class LLMResponseParser:
                 logger.info("LLM provided final answer.", extra={'trace_id': trace_id, 'event': 'llm_final_answer', 'answer': final_answer})
                 return "final_answer", None, final_answer
             elif content and content.strip().startswith("Thought:"):
-                thought = content.strip()
-                logger.info("LLM provided a thought.", extra={'trace_id': trace_id, 'event': 'llm_thought', 'thought': thought})
-                return "thought", None, thought
+                # Check if the thought contains "Final Answer:" - this violates our format
+                if "Final Answer:" in content:
+                    # Extract only the thought part before "Final Answer:"
+                    thought_part = content.split("Final Answer:")[0].strip()
+                    logger.warning("LLM provided thought with embedded final answer - extracting thought only.", 
+                                 extra={'trace_id': trace_id, 'event': 'llm_malformed_thought', 'original_content': content})
+                    return "thought", None, thought_part
+                else:
+                    thought = content.strip()
+                    logger.info("LLM provided a thought.", extra={'trace_id': trace_id, 'event': 'llm_thought', 'thought': thought})
+                    return "thought", None, thought
             else:
                 # Try to parse tool calls from JSON in content
                 tool_calls = self._extract_tool_calls_from_content(content, trace_id)

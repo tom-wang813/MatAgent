@@ -90,6 +90,14 @@ function App() {
 
   const activeConversation = conversations.find(conv => conv.id === activeConversationId);
 
+  // 如果没有找到活跃的对话，但conversations存在，选择第一个
+  useEffect(() => {
+    if (!activeConversation && conversations.length > 0 && activeConversationId) {
+      console.warn('Active conversation not found, selecting first conversation');
+      setActiveConversationId(conversations[0].id);
+    }
+  }, [activeConversation, conversations, activeConversationId]);
+
   return (
     <Box sx={{
       display: 'flex',

@@ -131,7 +131,32 @@ class AgentOrchestrator:
             if not self.tool_manager._available_tools:
                 await self.tool_manager.discover_tools(trace_id=trace_id)
             
+            # For first turn, use user message to select tools
+            # For subsequent turns after thought, use the thought content to select tools
             query_for_tools = messages[-1]["content"]
+            if turn_count == 1:
+                # First turn: use user question to get initial tool set
+                query_for_tools = messages[-1]["content"]
+            else:
+                # Check if the last assistant message was a thought
+                for msg in reversed(messages):
+                    if msg.get("role") == "assistant":
+                        content = msg.get("content", "")
+                        if content.startswith("Thought:"):
+                            # Use the thought content for tool selection
+                            query_for_tools = content.replace("Thought:", "").strip()
+                            logger.info(f"Using thought content for tool selection: {query_for_tools[:100]}...", 
+                                      extra={'trace_id': trace_id, 'event': 'tool_selection_from_thought'})
+                            break
+                        elif "Thought:" in content:
+                            # Extract thought part if it contains other content
+                            thought_part = content.split("Thought:")[1].split("Final Answer:")[0].strip()
+                            query_for_tools = thought_part
+                            logger.info(f"Extracted thought for tool selection: {query_for_tools[:100]}...", 
+                                      extra={'trace_id': trace_id, 'event': 'tool_selection_from_extracted_thought'})
+                            break
+                        break
+            
             # Ensure query_for_tools is a string
             if not isinstance(query_for_tools, str):
                 query_for_tools = str(query_for_tools) if query_for_tools is not None else ""
@@ -221,9 +246,22 @@ class AgentOrchestrator:
 
                 elif action_type == "thought":
                     yield {"type": "thought", "content": content}
-                    messages.append(llm_response["choices"][0]["message"])
-                    self.conversation_service.add_message(conversation_id, "assistant", json.dumps(llm_response["choices"][0]["message"]), trace_id=trace_id)
+                    # Only save the content part, not tool_calls that might be present
+                    thought_message = {"role": "assistant", "content": content}
+                    messages.append(thought_message)
+                    self.conversation_service.add_message(conversation_id, "assistant", json.dumps(thought_message), trace_id=trace_id)
                     logger.info("Agent provided a thought.", extra={'trace_id': trace_id, 'event': 'agent_thought', 'thought': content})
+                    
+                    # Check if this thought is analyzing tool results (comes after tool execution)
+                    # If so, we should prompt for a Final Answer in the next turn
+                    if turn_count > 1 and any(msg.get("role") == "tool" for msg in messages[-5:]):
+                        # Add a system message to prompt for Final Answer
+                        messages.append({
+                            "role": "system", 
+                            "content": "Based on your analysis of the tool results, please provide your Final Answer now. Start your response with 'Final Answer:' followed by your complete answer."
+                        })
+                        logger.info("Added Final Answer prompt after tool result analysis.", extra={'trace_id': trace_id, 'event': 'final_answer_prompt_added'})
+                    
                     continue
 
                 elif action_type == "error":

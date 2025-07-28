@@ -1,10 +1,60 @@
+# Environment files
 .env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Data and Database files
 data/
+*.db
+*.sqlite3
+
+# Python cache files
 *.pyc
 __pycache__/
 *.pyo
 *.pyd
-*.db
-*.sqlite3
+.pytest_cache/
+*.egg-info/
+
+# Node.js dependencies
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Build outputs
+dist/
+build/
+*.tgz
+*.tar.gz
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Logs
 *.log
+logs/
+
+# Temporary files
+*.tmp
+*.temp
+
+# Documentation drafts
 GEMINI.md
+TODO.md
+NOTES.md
